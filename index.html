@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>The Art of Linopot: Animated Slide Player</title>
+    <!-- Tailwind CSS for sleek modern layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for rich organic culture styling -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --emerald-primary: #065f46;
+            --amber-accent: #b45309;
+            --bg-cream: #FAF7F2;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0d0f0e;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .serif-title { 
+            font-family: 'Playfair Display', serif; 
+        }
+
+        /* 1. SLIDE CONTAINER CORE */
+        .slide-container {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-cream);
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            z-index: 1;
+            overflow-y: auto; /* Fallback for small heights / portrait viewports */
+        }
+
+        @media (min-width: 768px) {
+            .slide-container {
+                padding: 40px;
+            }
+        }
+
+        .slide-container.active { 
+            opacity: 1; 
+            visibility: visible;
+            z-index: 10;
+        }
+
+        /* 2. ENTRANCE & FLOAT ANIMATIONS */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes bgFloat {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(15px, -15px) rotate(1.5deg); }
+        }
+
+        /* Applying entry animations dynamically to active slide contents */
+        .slide-container.active .animate-title { 
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+        }
+        
+        .slide-container.active .animate-content { 
+            opacity: 0; 
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; 
+        }
+        
+        .slide-container.active .animate-graphic { 
+            opacity: 0; 
+            animation: scaleIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; 
+        }
+
+        /* Staggered delay helpers */
+        .slide-container.active .stagger-1 { animation-delay: 0.3s; }
+        .slide-container.active .stagger-2 { animation-delay: 0.45s; }
+        .slide-container.active .stagger-3 { animation-delay: 0.6s; }
+
+        .bg-pattern {
+            position: absolute;
+            inset: 0;
+            opacity: 0.05;
+            z-index: 0;
+            animation: bgFloat 20s infinite ease-in-out;
+            pointer-events: none;
+        }
+
+        /* 3. ENGINE SVGs ANIMATIONS (Fire, Steam, Lid) */
+        @keyframes fire-flicker {
+            0%, 100% { transform: scale(1) rotate(-1deg); filter: brightness(1); }
+            50% { transform: scale(1.1) rotate(2deg); filter: brightness(1.2); }
+        }
+        .animate-fire { 
+            animation: fire-flicker 0.4s infinite alternate ease-in-out; 
+        }
+
+        @keyframes lid-rattle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-1.5deg) translateY(-1.5px); }
+            75% { transform: rotate(1.5deg) translateY(-1px); }
+        }
+        .animate-lid { 
+            animation: lid-rattle 0.15s infinite ease-in-out; 
+        }
+
+        @keyframes steam-rise {
+            0% { transform: translateY(15px) scale(0.8); opacity: 0; }
+            50% { opacity: 0.6; }
+            100% { transform: translateY(-45px) scale(1.3); opacity: 0; }
+        }
+        .steam-line { 
+            animation: steam-rise 2.3s infinite ease-in-out; 
+        }
+        .steam-delay-1 { animation-delay: 0.6s; }
+        .steam-delay-2 { animation-delay: 1.3s; }
+
+        /* 4. WORKSPACE WRAPPER */
+        .app-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0d0f0e;
+        }
+
+        /* Slide Ratio Viewport Area */
+        .viewport-container {
+            flex-grow: 1;
+            position: relative;
+            background-color: #000;
+        }
+
+        /* Bottom Controls Bar (Large touch targets for tablet navigation) */
+        .controls-bar {
+            height: 84px;
+            background-color: #1c1917;
+            border-top: 1px solid #2e2a28;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            color: #d6d3d1;
+            z-index: 100;
+        }
+
+        @media (min-width: 768px) {
+            .controls-bar {
+                padding: 0 40px;
+            }
+        }
+
+        .btn-nav {
+            background-color: #292524;
+            color: #f5f5f4;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            border: 1px solid #44403c;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            touch-action: manipulation; /* Optimizes tap latency on mobile/tablets */
+        }
+        .btn-nav:hover { 
+            background-color: #44403c; 
+            transform: translateY(-1px); 
+        }
+        .btn-nav:active {
+            transform: translateY(1px);
+        }
+        .btn-nav:disabled { 
+            opacity: 0.25; 
+            cursor: not-allowed; 
+            transform: none; 
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #44403c;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .dot.active {
+            background-color: #10b981;
+            transform: scale(1.3);
+        }
+    </style>
+</head>
+<body class="text-stone-900 select-none">
+
+    <div class="app-wrapper">
+        
+        <!-- MAIN VIEWPORT FOR PRESENTATION -->
+        <div class="viewport-container" id="deck">
+            
+            <!-- SLIDE 1: TITLE SLIDE -->
+            <div id="slide-1" class="slide-container active">
+                <!-- Floating background pattern -->
+                <svg class="bg-pattern" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0,200 Q200,300 400,200 T800,200 T1200,200" fill="none" stroke="#065f46" stroke-width="24" />
+                    <path d="M0,600 Q200,700 400,600 T800,600 T1200,600" fill="none" stroke="#065f46" stroke-width="24" />
+                </svg>
+                
+                <div class="flex justify-between items-start relative z-10 w-full mb-4">
+                    <span class="text-xs font-bold uppercase tracking-widest text-emerald-800 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full">Sabah Heritage</span>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 1 / 8</span>
+                </div>
+                
+                <div class="flex-grow flex flex-col lg:flex-row items-center justify-center lg:justify-between relative z-10 w-full px-4 lg:px-12 gap-8">
+                    <div class="max-w-2xl text-center lg:text-left">
+                        <h1 class="serif-title text-4xl md:text-6xl lg:text-7xl font-extrabold text-stone-900 leading-tight animate-title">
+                            The Art of Making <br><span class="text-emerald-800 italic underline decoration-amber-600 decoration-wavy">Linopot</span>
+                        </h1>
+                        <p class="text-base md:text-xl lg:text-2xl text-stone-600 mt-6 font-light animate-content">Ancient Biodegradable Leaf-Wrapped Food Technology</p>
+                        <!-- Swipe Tip Visible Only on Touch Screens -->
+                        <p class="md:hidden text-emerald-700 text-xs font-semibold tracking-wider mt-4 animate-content uppercase"><i class="fa-solid fa-hand-pointer mr-1 animate-bounce"></i> Swipe left to begin</p>
+                    </div>
+                    <div class="animate-graphic shrink-0">
+                        <svg viewBox="0 0 200 200" class="w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 drop-shadow-2xl">
+                            <!-- Drop Shadow -->
+                            <ellipse cx="100" cy="165" rx="70" ry="12" fill="#78350f" opacity="0.15" />
+                            <!-- Back leaf wrap -->
+                            <path d="M40,150 Q10,70 100,40 Q190,70 160,150 Z" fill="#15803d" />
+                            <!-- Front folded leaf flaps -->
+                            <path d="M40,150 L100,90 L160,150 Z" fill="#0f766e" />
+                            <path d="M40,150 L100,105 L110,150 Z" fill="#115e59" opacity="0.9"/>
+                            <path d="M160,150 L100,105 L90,150 Z" fill="#134e4a" opacity="0.9"/>
+                            <!-- Steam lines -->
+                            <g class="steam-line text-emerald-600 opacity-60"><path d="M80,30 Q85,15 80,5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></g>
+                            <g class="steam-line steam-delay-1 text-emerald-500 opacity-50"><path d="M100,35 Q105,20 100,10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></g>
+                            <g class="steam-line steam-delay-2 text-emerald-600 opacity-60"><path d="M120,30 Q125,15 120,5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 2: INGREDIENTS -->
+            <div id="slide-2" class="slide-container">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <h2 class="serif-title text-3xl md:text-5xl font-bold text-emerald-900 animate-title">The Core Ingredients</h2>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 2 / 8</span>
+                </div>
+                
+                <div class="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-8 items-center w-full px-2 lg:px-6">
+                    <!-- Ingredient 1: Rice -->
+                    <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-md border border-stone-200 animate-content stagger-1 flex flex-row md:flex-col items-center gap-4 md:gap-0">
+                        <div class="w-20 h-20 md:w-32 md:h-32 mb-0 md:mb-4 flex items-center justify-center shrink-0">
+                            <svg viewBox="0 0 100 100" class="w-16 h-16 md:w-24 md:h-24">
+                                <ellipse cx="50" cy="80" rx="35" ry="12" fill="#cbd5e1" opacity="0.5" />
+                                <path d="M50,30 Q60,40 50,60 Q40,40 50,30" fill="#fef08a" stroke="#ca8a04" stroke-width="2" />
+                                <path d="M35,45 Q45,55 35,70 Q25,55 35,45" fill="#fef08a" stroke="#ca8a04" stroke-width="2" transform="rotate(-15 35 55)" />
+                                <path d="M65,45 Q75,55 65,70 Q55,55 65,45" fill="#fef08a" stroke="#ca8a04" stroke-width="2" transform="rotate(15 65 55)" />
+                                <path d="M50,85 Q48,45 58,20" fill="none" stroke="#854d0e" stroke-width="3" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <div class="text-left md:text-center">
+                            <h4 class="text-lg md:text-xl font-bold text-stone-800">1. Fragrant Hill Rice</h4>
+                            <p class="text-stone-500 text-xs md:text-sm mt-1 md:mt-2">Upland rice (Beras Bukit) harvested locally, organic and aromatic.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Ingredient 2: Sweet Potato -->
+                    <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-md border border-stone-200 animate-content stagger-2 flex flex-row md:flex-col items-center gap-4 md:gap-0">
+                        <div class="w-20 h-20 md:w-32 md:h-32 mb-0 md:mb-4 flex items-center justify-center shrink-0">
+                            <svg viewBox="0 0 100 100" class="w-16 h-16 md:w-24 md:h-24">
+                                <ellipse cx="50" cy="80" rx="40" ry="10" fill="#cbd5e1" opacity="0.5" />
+                                <path d="M15,50 Q20,25 50,25 Q80,25 85,50 Q80,75 50,75 Q20,75 15,50 Z" fill="#a855f7" stroke="#7e22ce" stroke-width="2.5" />
+                                <path d="M22,50 Q27,32 50,32 Q73,32 78,50 Q73,68 50,68 Q27,68 22,50 Z" fill="#d8b4fe" />
+                                <circle cx="50" cy="50" r="10" fill="#c084fc" opacity="0.7"/>
+                            </svg>
+                        </div>
+                        <div class="text-left md:text-center">
+                            <h4 class="text-lg md:text-xl font-bold text-purple-950">2. Root Vegetables</h4>
+                            <p class="text-stone-500 text-xs md:text-sm mt-1 md:mt-2">Sweet potato or yam, providing the iconic purple color, starch, and sweetness.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Ingredient 3: Tarap Leaf -->
+                    <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-md border border-stone-200 animate-content stagger-3 flex flex-row md:flex-col items-center gap-4 md:gap-0">
+                        <div class="w-20 h-20 md:w-32 md:h-32 mb-0 md:mb-4 flex items-center justify-center shrink-0">
+                            <svg viewBox="0 0 100 100" class="w-16 h-16 md:w-24 md:h-24">
+                                <ellipse cx="50" cy="85" rx="30" ry="8" fill="#cbd5e1" opacity="0.5" />
+                                <path d="M50,15 C65,30 85,35 75,55 C68,70 62,80 50,85 C38,80 32,70 25,55 C15,35 35,30 50,15 Z" fill="#22c55e" stroke="#15803d" stroke-width="2.5" />
+                                <path d="M50,15 L50,85" stroke="#166534" stroke-width="2" />
+                            </svg>
+                        </div>
+                        <div class="text-left md:text-center">
+                            <h4 class="text-lg md:text-xl font-bold text-emerald-900">3. Wild Forest Leaves</h4>
+                            <p class="text-stone-500 text-xs md:text-sm mt-1 md:mt-2">Large Tarap or banana leaves that hold moisture and impart herbal fragrance.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 3: COOKING -->
+            <div id="slide-3" class="slide-container">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <h2 class="serif-title text-3xl md:text-5xl font-bold text-emerald-900 animate-title">Step 1: Cooking &amp; Infusing</h2>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 3 / 8</span>
+                </div>
+                
+                <div class="flex-grow flex flex-col lg:flex-row items-center gap-6 lg:gap-12 w-full px-2 lg:px-6">
+                    <div class="flex-1 flex flex-col gap-4 lg:gap-6 w-full animate-content">
+                        <div class="bg-emerald-50/80 p-4 lg:p-5 rounded-xl border-l-4 border-emerald-600 shadow-sm">
+                            <h3 class="text-base lg:text-lg font-bold text-emerald-800 flex items-center gap-2">
+                                <span class="bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                                Boil Combined Ingredients
+                            </h3>
+                            <p class="text-stone-600 text-xs lg:text-sm mt-1.5">Diced sweet potato and cleaned hill rice are cooked together in the same pot to unify the juices.</p>
+                        </div>
+                        <div class="bg-emerald-50/80 p-4 lg:p-5 rounded-xl border-l-4 border-emerald-600 shadow-sm">
+                            <h3 class="text-base lg:text-lg font-bold text-emerald-800 flex items-center gap-2">
+                                <span class="bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                                Natural Color Integration
+                            </h3>
+                            <p class="text-stone-600 text-xs lg:text-sm mt-1.5">As the starch bubbles and reaches a boil, the sweet potato melts and naturally bleeds a brilliant purple color into the rice grains.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 flex justify-center animate-graphic w-full">
+                        <div class="bg-white p-4 lg:p-6 rounded-2xl shadow-lg border border-stone-200 flex flex-col items-center justify-center h-[240px] md:h-[300px] lg:h-[340px] w-full max-w-md">
+                            <svg viewBox="0 0 200 180" class="w-full h-full">
+                                <!-- Steam rising -->
+                                <g class="steam-line text-purple-400 opacity-60"><path d="M75,40 Q80,20 75,5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></g>
+                                <g class="steam-line steam-delay-1 text-stone-400 opacity-70"><path d="M100,45 Q105,25 100,10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></g>
+                                <g class="steam-line steam-delay-2 text-purple-300 opacity-60"><path d="M125,40 Q130,20 125,5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></g>
+                                <!-- Steel pot -->
+                                <path d="M40,80 L160,80 L150,150 Q100,165 50,150 Z" fill="#64748b" stroke="#475569" stroke-width="3" />
+                                <!-- Pot lid with rattle effect -->
+                                <ellipse cx="100" cy="80" rx="63" ry="10" fill="#475569" class="animate-lid" />
+                                <path d="M25,95 Q15,95 25,115" fill="none" stroke="#475569" stroke-width="4" stroke-linecap="round"/>
+                                <path d="M175,95 Q185,95 175,115" fill="none" stroke="#475569" stroke-width="4" stroke-linecap="round"/>
+                                
+                                <!-- Bubbles/Fire -->
+                                <path d="M60,168 Q100,155 140,168" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+                                <path d="M95,168 Q100,158 105,168" fill="none" stroke="#f97316" stroke-width="3" class="animate-fire" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 4: POUNDING -->
+            <div id="slide-4" class="slide-container">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <h2 class="serif-title text-3xl md:text-5xl font-bold text-emerald-900 animate-title">Step 2: Pounding the Mash</h2>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 4 / 8</span>
+                </div>
+                
+                <div class="flex-grow flex flex-col lg:flex-row items-center gap-6 lg:gap-12 w-full px-2 lg:px-6">
+                    <div class="flex-1 animate-graphic w-full flex justify-center">
+                        <div class="bg-white p-4 lg:p-6 rounded-2xl shadow-lg border border-stone-200 flex flex-col items-center justify-center h-[240px] md:h-[300px] lg:h-[340px] w-full max-w-md">
+                            <svg viewBox="0 0 200 150" class="w-full h-full">
+                                <ellipse cx="100" cy="120" rx="65" ry="12" fill="#cbd5e1" opacity="0.5" />
+                                <path d="M40,70 L160,70 L150,120 Q100,135 50,120 Z" fill="#78350f" stroke="#451a03" stroke-width="3" />
+                                <ellipse cx="100" cy="70" rx="60" ry="12" fill="#451a03" />
+                                <ellipse id="mash-bowl-base" cx="100" cy="74" rx="55" ry="9" fill="#701a75" />
+                                
+                                <g id="rice-specks" opacity="0.8">
+                                    <ellipse cx="70" cy="74" rx="3" ry="1.5" fill="#ffffff" transform="rotate(15 70 74)" />
+                                    <ellipse cx="90" cy="72" rx="3" ry="1.5" fill="#fef08a" transform="rotate(-10 90 72)" />
+                                    <ellipse cx="110" cy="75" rx="3" ry="1.5" fill="#ffffff" transform="rotate(45 110 75)" />
+                                </g>
+                                
+                                <g id="pestle-graphic" class="origin-top" style="transform: translate(0px, 0px) rotate(12deg); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                                    <path d="M90,10 L110,10 L115,85 L85,85 Z" fill="#b45309" stroke="#78350f" stroke-width="2" />
+                                    <ellipse cx="100" cy="85" rx="15" ry="5" fill="#78350f" />
+                                </g>
+                            </svg>
+                            <button onclick="simulateMash()" class="mt-3 bg-amber-700 hover:bg-amber-600 text-stone-100 text-xs font-bold py-2 px-6 rounded-lg transition duration-150 flex items-center gap-2 shadow-md">
+                                <i class="fa-solid fa-gavel text-[10px]"></i> Simulate Pounding Mash
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 flex flex-col gap-4 animate-content w-full">
+                        <h4 class="font-bold text-stone-800 text-lg lg:text-xl">The Art of "Semi-Mashing"</h4>
+                        <p class="text-stone-600 leading-relaxed text-xs lg:text-sm">
+                            While the mixture is steaming hot, use a wooden pestle or paddle to stir and press the sweet potato cubes. They must dissolve entirely to act as a sweet, sticky binder.
+                        </p>
+                        <p class="text-stone-600 leading-relaxed text-xs lg:text-sm">
+                            However, keep some whole rice grains intact! This preserves a robust, rustic bite rather than a baby-food puree.
+                        </p>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 lg:p-4 text-xs text-amber-800 font-semibold flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 shrink-0"></i>
+                            <span>Crucial detail: The pounding must be executed while the mash is boiling hot, or the starch bonds will fail to lock.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 5: WILTING -->
+            <div id="slide-5" class="slide-container">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <h2 class="serif-title text-3xl md:text-5xl font-bold text-emerald-900 animate-title">Step 3: Preparing the "Bio-Wrap"</h2>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 5 / 8</span>
+                </div>
+                
+                <div class="flex-grow flex flex-col lg:flex-row items-center gap-6 lg:gap-12 w-full px-2 lg:px-6">
+                    <div class="flex-1 flex flex-col gap-4 animate-content w-full">
+                        <h4 class="font-bold text-stone-800 text-lg lg:text-xl">The Science of Fire-Wilting</h4>
+                        <p class="text-stone-600 text-xs lg:text-sm leading-relaxed">
+                            Raw jungle Tarap or banana leaves are naturally stiff and brittle. If folded immediately, they split open and leak valuable starch.
+                        </p>
+                        <p class="text-stone-600 text-xs lg:text-sm leading-relaxed">
+                            By heating the leaves briefly over a burner flame, we soften their structural fibers. This renders the leaf as pliable as modern foil. It also releases natural oils that season the hot rice.
+                        </p>
+                        <ul class="text-[11px] lg:text-xs text-stone-700 bg-white border border-stone-200 rounded-lg p-3 lg:p-4 flex flex-col gap-2">
+                            <li class="flex items-center gap-2 font-semibold text-emerald-800">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i> Softens leaf fibers for wrapping
+                            </li>
+                            <li class="flex items-center gap-2 font-semibold text-emerald-800">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i> Activates fragrant herbal essential oils
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="flex-1 flex justify-center animate-graphic w-full">
+                        <div class="bg-white p-4 lg:p-6 rounded-2xl shadow-lg border border-stone-200 flex flex-col items-center justify-center h-[240px] md:h-[300px] lg:h-[340px] w-full max-w-md">
+                            <div class="relative w-full h-36 lg:h-40 flex items-center justify-around">
+                                <svg viewBox="0 0 120 160" class="w-20 h-28 lg:w-24 lg:h-32">
+                                    <path id="flame-leaf-path" d="M60,10 C80,40 100,50 90,90 C80,120 75,135 60,145 C45,135 40,120 30,90 C20,50 40,40 60,10 Z" fill="#22c55e" stroke="#15803d" stroke-width="2.5" style="transition: fill 0.6s ease;" />
+                                    <path d="M60,10 L60,145" stroke="#15803d" stroke-width="1.5" />
+                                    <text id="flame-leaf-text" x="60" y="85" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle" class="uppercase">Raw Leaf</text>
+                                </svg>
+                                
+                                <svg viewBox="0 0 100 120" class="w-14 h-20 lg:w-16 lg:h-24">
+                                    <path d="M50,10 Q80,60 50,110 Q20,60 50,10 Z" class="animate-fire" fill="#f97316" />
+                                    <path d="M50,30 Q70,65 50,105 Q30,65 50,30 Z" class="animate-fire" fill="#facc15" style="animation-delay: 0.15s;"/>
+                                    <rect x="20" y="105" width="60" height="8" rx="2" fill="#475569" />
+                                </svg>
+                            </div>
+                            <button onclick="simulateWilt()" class="mt-3 bg-emerald-700 hover:bg-emerald-600 text-stone-100 text-xs font-bold py-2.5 px-6 rounded-lg transition duration-150 shadow-md">
+                                <i class="fa-solid fa-fire-burner text-[10px]"></i> Pass Leaf Over Fire
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 6: MOLDING & FOLDING -->
+            <div id="slide-6" class="slide-container">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <h2 class="serif-title text-3xl md:text-5xl font-bold text-emerald-900 animate-title">Step 4: Molding &amp; Folding</h2>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 6 / 8</span>
+                </div>
+                
+                <div class="flex-grow flex flex-col lg:flex-row items-center gap-6 lg:gap-12 w-full px-2 lg:px-6">
+                    <div class="flex-1 animate-graphic w-full flex justify-center">
+                        <div class="bg-white p-4 lg:p-6 rounded-2xl shadow-lg border border-stone-200 flex flex-col justify-between items-center h-[240px] md:h-[300px] lg:h-[340px] w-full max-w-md">
+                            <div class="relative w-full h-32 lg:h-44 flex items-center justify-center">
+                                <svg viewBox="0 0 200 120" class="w-full h-full">
+                                    <!-- Leaf Base -->
+                                    <path id="step-leaf-base" d="M40,10 L160,10 L160,110 L40,110 Z" fill="#15803d" stroke="#14532d" stroke-width="2" />
+                                    <!-- Half Folds -->
+                                    <path id="step-fold-left" d="M40,10 L100,60 L40,110 Z" fill="#166534" class="hidden" />
+                                    <path id="step-fold-right" d="M160,10 L100,60 L160,110 Z" fill="#0f766e" class="hidden" />
+                                    
+                                    <!-- Hot mash core -->
+                                    <circle id="step-food" cx="100" cy="60" r="28" fill="#701a75" stroke="#4a044e" stroke-width="2" />
+                                    <g id="step-food-rice" opacity="0.9">
+                                        <ellipse cx="90" cy="50" rx="3" ry="1.5" fill="#fff" transform="rotate(30 90 50)"/>
+                                        <ellipse cx="110" cy="55" rx="3" ry="1.5" fill="#fff" transform="rotate(-15 110 55)"/>
+                                    </g>
+
+                                    <!-- Step 3: Sealed Triangular Package -->
+                                    <g id="step-folded-package" class="hidden">
+                                        <ellipse cx="100" cy="95" rx="55" ry="10" fill="#78350f" opacity="0.2" />
+                                        <path d="M50,90 L100,25 L150,90 Z" fill="#0f766e" stroke="#134e4a" stroke-width="2" />
+                                        <path d="M50,90 L100,65 L150,90 Z" fill="#115e59" stroke="#134e4a" stroke-width="1.5" />
+                                        <path d="M50,90 L100,75 L90,90 Z" fill="#134e4a" opacity="0.8" />
+                                        <path d="M150,90 L100,75 L110,90 Z" fill="#134e4a" opacity="0.8" />
+                                    </g>
+                                </svg>
+                                <p id="wrap-stage-desc" class="absolute bottom-1 text-[10px] text-stone-500 font-bold uppercase tracking-wide">Stage: Placed Core Mash</p>
+                            </div>
+                            
+                            <div class="flex gap-2 mb-1 lg:mb-2">
+                                <button id="btn-wrap-1" onclick="setWrapStage(1)" class="bg-emerald-700 hover:bg-emerald-600 text-white text-[9px] lg:text-[10px] font-bold py-1.5 px-2.5 lg:px-3 rounded shadow transition-all duration-200">Step 1: Center</button>
+                                <button id="btn-wrap-2" onclick="setWrapStage(2)" class="bg-stone-200 hover:bg-stone-300 text-stone-800 text-[9px] lg:text-[10px] font-bold py-1.5 px-2.5 lg:px-3 rounded transition-all duration-200">Step 2: Fold Sides</button>
+                                <button id="btn-wrap-3" onclick="setWrapStage(3)" class="bg-stone-200 hover:bg-stone-300 text-stone-800 text-[9px] lg:text-[10px] font-bold py-1.5 px-2.5 lg:px-3 rounded transition-all duration-200">Step 3: Tuck Under</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 flex flex-col gap-4 animate-content w-full">
+                        <h4 class="font-bold text-stone-800 text-lg lg:text-xl">The Science of the Vacuum Seal</h4>
+                        <p class="text-stone-600 text-xs lg:text-sm leading-relaxed">
+                            Position your piping-hot rice ball in the center of the wilted leaf. By overlapping the left and right flaps, and folding the excess bottom flaps underneath, you trap the hot steam.
+                        </p>
+                        <p class="text-stone-600 text-xs lg:text-sm leading-relaxed">
+                            As the rice cools, it creates a vacuum effect. The wrapping contracts and holds itself closed. **Zero rope, tape, or rubber bands are required!**
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 7: VIDEO SETUP -->
+            <div id="slide-7" class="slide-container">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <h2 class="serif-title text-3xl font-bold text-emerald-900 animate-title">Process Video Demonstration</h2>
+                    <span class="text-xs text-stone-400 font-semibold">Slide 7 / 8</span>
+                </div>
+                
+                <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 my-auto items-stretch w-full px-2 lg:px-6">
+                    <div class="flex flex-col gap-3 justify-center animate-content w-full">
+                        <h4 class="font-bold text-stone-800 text-base lg:text-lg">Key Elements to Watch For:</h4>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex gap-3 items-center">
+                                <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">1</div>
+                                <p class="text-xs text-stone-700 leading-tight">Watch the glossy finish of the leaves transition over the fire.</p>
+                            </div>
+                            <div class="flex gap-3 items-center">
+                                <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">2</div>
+                                <p class="text-xs text-stone-700 leading-tight">Observe the dense sticky mash texture binding the grains.</p>
+                            </div>
+                            <div class="flex gap-3 items-center">
+                                <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">3</div>
+                                <p class="text-xs text-stone-700 leading-tight">Notice the rapid tuck-and-roll movements of the artisan.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-stone-200/60 p-2 lg:p-2.5 rounded-lg border border-stone-300 flex items-center justify-between gap-2 lg:gap-3 text-stone-800 mt-4">
+                            <input id="yt-url-input" type="text" placeholder="YouTube link..." class="bg-white px-2 py-1 lg:py-1.5 text-[11px] rounded border border-stone-300 flex-grow focus:outline-emerald-600 min-w-0">
+                            <button onclick="loadCustomYoutube()" class="bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-[10px] px-2 py-1.5 lg:px-3 rounded transition shrink-0">Load URL</button>
+                            <label class="bg-stone-800 hover:bg-stone-700 text-white font-bold text-[10px] px-2 py-1.5 lg:px-3 rounded cursor-pointer transition shrink-0 text-center">
+                                Upload
+                                <input id="local-file-input" type="file" accept="video/*" class="hidden" onchange="loadLocalVideo(this)">
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="animate-graphic flex items-center justify-center w-full">
+                        <div class="bg-black rounded-xl overflow-hidden w-full h-[180px] md:h-[240px] lg:h-[250px] relative shadow-lg">
+                            <iframe id="slide-video-player" class="w-full h-full border-none" src="https://www.youtube.com/embed/v1JuNxzAnNg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                            <video id="slide-local-player" class="w-full h-full hidden" controls></video>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 8: CONCLUSION -->
+            <div id="slide-8" class="slide-container bg-gradient-to-br from-[#1E3E28] to-[#0D1F13] text-stone-100">
+                <div class="flex justify-between items-start w-full mb-4">
+                    <span class="text-xs font-bold uppercase tracking-widest text-emerald-300 bg-emerald-950/50 border border-emerald-800/30 px-3 py-1 rounded-full">Eco Heritage</span>
+                    <span class="text-xs text-emerald-400 font-semibold">Slide 8 / 8</span>
+                </div>
+                
+                <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full px-4 lg:px-12">
+                    <div class="col-span-12 lg:col-span-8 text-center lg:text-left">
+                        <h2 class="serif-title text-3xl lg:text-5xl font-extrabold text-stone-100 leading-tight animate-title">
+                            Ancient Technology for a Modern Future
+                        </h2>
+                        <p class="text-xs md:text-sm lg:text-base text-emerald-300 mt-4 leading-relaxed font-light animate-content">
+                            Long before plastics, cling wrap, and modern lunch boxes, the native communities of Borneo had successfully engineered a zero-waste, 100% biodegradable, heat-retaining food carrier.
+                        </p>
+                        <p class="text-xs md:text-sm lg:text-base text-emerald-400 mt-2 leading-relaxed font-light animate-content">
+                            Studying Linopot allows us to recognize the ecological intelligence embedded in historical Southeast Asian customs, reminding us that sustainability is a ancient tradition.
+                        </p>
+                    </div>
+                    
+                    <div class="col-span-12 lg:col-span-4 flex justify-center animate-graphic">
+                        <svg viewBox="0 0 160 160" class="w-28 h-28 md:w-40 md:h-40 lg:w-48 lg:h-48 filter drop-shadow-2xl">
+                            <!-- Bamboo Basket -->
+                            <ellipse cx="80" cy="115" rx="50" ry="20" fill="#78350f" opacity="0.4" />
+                            <path d="M40,95 L120,95 L110,135 Q80,145 50,135 Z" fill="#b45309" stroke="#78350f" stroke-width="2"/>
+                            <path d="M45,95 L55,135 M65,95 L65,137 M85,95 L80,139 M105,95 L95,135 M115,95 L105,135" stroke="#78350f" stroke-width="1.5" />
+                            <path d="M43,105 Q80,115 117,105 M46,115 Q80,125 114,115 M48,125 Q80,135 112,125" fill="none" stroke="#78350f" stroke-width="1.5" />
+                            
+                            <!-- Leaf Packets inside -->
+                            <path d="M50,85 Q35,55 70,45 Q105,55 90,85 Z" fill="#15803d" />
+                            <path d="M50,85 L70,60 L90,85 Z" fill="#0f766e" />
+                            
+                            <path d="M80,90 Q65,60 100,50 Q135,60 120,90 Z" fill="#166534" />
+                            <path d="M80,90 L100,65 L120,90 Z" fill="#115e59" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center border-t border-emerald-800/50 pt-4 w-full">
+                    <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Thank You! Any Questions?</span>
+                    <span class="text-[10px] text-emerald-500 font-semibold">Sabah Traditional Foods Unit</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CONTROLS & NAV INDICATOR FOOTER -->
+        <div class="controls-bar">
+            <button onclick="prevSlide()" id="prevBtn" class="btn-nav" disabled>
+                <i class="fa-solid fa-chevron-left mr-2"></i> Previous
+            </button>
+            
+            <div class="flex gap-2" id="indicator-dots"></div>
+            
+            <button onclick="nextSlide()" id="nextBtn" class="btn-nav">
+                Next <i class="fa-solid fa-chevron-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- PRESENTATION SCRIPTS -->
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 8;
+
+        // Render dot indicator bar
+        function initializeIndicators() {
+            const container = document.getElementById("indicator-dots");
+            container.innerHTML = "";
+            for (let i = 1; i <= totalSlides; i++) {
+                const dot = document.createElement("div");
+                dot.id = `dot-${i}`;
+                dot.className = `dot ${i === 1 ? 'active' : ''}`;
+                dot.addEventListener('click', () => goToSlide(i));
+                container.appendChild(dot);
+            }
+        }
+
+        // Navigate slides
+        function goToSlide(slideNum) {
+            if (slideNum < 1 || slideNum > totalSlides) return;
+
+            // Pause all playing elements on transition
+            pauseVideos();
+
+            // Deactivate current slide/dot
+            document.getElementById(`slide-${currentSlide}`).classList.remove("active");
+            document.getElementById(`dot-${currentSlide}`).classList.remove("active");
+
+            // Activate new slide/dot
+            currentSlide = slideNum;
+            document.getElementById(`slide-${currentSlide}`).classList.add("active");
+            document.getElementById(`dot-${currentSlide}`).classList.add("active");
+
+            // Disable/enable buttons safely
+            document.getElementById("prevBtn").disabled = currentSlide === 1;
+            document.getElementById("nextBtn").disabled = currentSlide === totalSlides;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) goToSlide(currentSlide + 1);
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) goToSlide(currentSlide - 1);
+        }
+
+        function pauseVideos() {
+            const iframe = document.getElementById("slide-video-player");
+            const local = document.getElementById("slide-local-player");
+            
+            // Reload iframe to force pause YouTube stream
+            const src = iframe.src;
+            iframe.src = src;
+
+            local.pause();
+        }
+
+        // Simulating the Pounding Mash
+        function simulateMash() {
+            const pestle = document.getElementById("pestle-graphic");
+            const base = document.getElementById("mash-bowl-base");
+            const specks = document.getElementById("rice-specks");
+
+            // Slam downward
+            pestle.style.transform = "translate(-12px, 30px) rotate(-10deg)";
+            setTimeout(() => {
+                base.style.fill = "#581c87";
+                specks.style.opacity = "1";
+            }, 100);
+
+            // Rebound back up
+            setTimeout(() => {
+                pestle.style.transform = "translate(0px, 0px) rotate(12deg)";
+                base.style.fill = "#701a75";
+                specks.style.opacity = "0.8";
+            }, 350);
+        }
+
+        // Simulating Leaf Wilting
+        function simulateWilt() {
+            const leaf = document.getElementById("flame-leaf-path");
+            const text = document.getElementById("flame-leaf-text");
+
+            leaf.style.fill = "#065f46";
+            leaf.style.stroke = "#047857";
+            text.innerHTML = "Wilted Leaf";
+            text.style.color = "#a7f3d0";
+
+            // Cool down back to raw after 4s
+            setTimeout(() => {
+                leaf.style.fill = "#22c55e";
+                leaf.style.stroke = "#15803d";
+                text.innerHTML = "Raw Leaf";
+                text.style.color = "#ffffff";
+            }, 4000);
+        }
+
+        // Folding steps simulation
+        function setWrapStage(stage) {
+            const leafBase = document.getElementById("step-leaf-base");
+            const foldLeft = document.getElementById("step-fold-left");
+            const foldRight = document.getElementById("step-fold-right");
+            const food = document.getElementById("step-food");
+            const foodRice = document.getElementById("step-food-rice");
+            const foldedPkg = document.getElementById("step-folded-package");
+            const desc = document.getElementById("wrap-stage-desc");
+
+            // Clear button states
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`btn-wrap-${i}`).className = "bg-stone-200 hover:bg-stone-300 text-stone-800 text-[10px] font-bold py-1.5 px-3 rounded transition-all duration-200";
+            }
+
+            // Highlight chosen button
+            document.getElementById(`btn-wrap-${stage}`).className = "bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold py-1.5 px-3 rounded shadow transition-all duration-200";
+
+            if (stage === 1) {
+                leafBase.classList.remove("hidden");
+                foldLeft.classList.add("hidden");
+                foldRight.classList.add("hidden");
+                food.classList.remove("hidden");
+                foodRice.classList.remove("hidden");
+                foldedPkg.classList.add("hidden");
+                desc.innerText = "Stage 1: Placed Core Mash";
+            } else if (stage === 2) {
+                leafBase.classList.remove("hidden");
+                foldLeft.classList.remove("hidden");
+                foldRight.classList.remove("hidden");
+                food.classList.remove("hidden");
+                foodRice.classList.add("hidden");
+                foldedPkg.classList.add("hidden");
+                desc.innerText = "Stage 2: Folded left/right Overlap";
+            } else if (stage === 3) {
+                leafBase.classList.add("hidden");
+                foldLeft.classList.add("hidden");
+                foldRight.classList.add("hidden");
+                food.classList.add("hidden");
+                foodRice.classList.add("hidden");
+                foldedPkg.classList.remove("hidden");
+                desc.innerText = "Stage 3: Airtight Under-Tuck Complete";
+            }
+        }
+
+        // YouTube URL Loader
+        function loadCustomYoutube() {
+            const inputVal = document.getElementById("yt-url-input").value.trim();
+            if (!inputVal) return;
+
+            const ytPlayer = document.getElementById("slide-video-player");
+            const localPlayer = document.getElementById("slide-local-player");
+
+            let embedUrl = "";
+            if (inputVal.includes("youtube.com/watch?v=")) {
+                const vidId = inputVal.split("v=")[1].split("&")[0];
+                embedUrl = `https://www.youtube.com/embed/${vidId}`;
+            } else if (inputVal.includes("youtu.be/")) {
+                const vidId = inputVal.split("youtu.be/")[1].split("?")[0];
+                embedUrl = `https://www.youtube.com/embed/${vidId}`;
+            } else if (inputVal.includes("youtube.com/embed/")) {
+                embedUrl = inputVal;
+            } else {
+                alert("Please enter a valid YouTube URL.");
+                return;
+            }
+
+            ytPlayer.src = embedUrl;
+            ytPlayer.classList.remove("hidden");
+            localPlayer.classList.add("hidden");
+        }
+
+        // Local offline file picker
+        function loadLocalVideo(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const ytPlayer = document.getElementById("slide-video-player");
+            const localPlayer = document.getElementById("slide-local-player");
+
+            localPlayer.src = URL.createObjectURL(file);
+            localPlayer.classList.remove("hidden");
+            ytPlayer.classList.add("hidden");
+            localPlayer.play();
+        }
+
+        // Keyboard arrow bindings
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "ArrowRight" || event.key === " ") {
+                nextSlide();
+            } else if (event.key === "ArrowLeft") {
+                prevSlide();
+            }
+        });
+
+        // --- Touch Gestures Handling for Tablets ---
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        const deck = document.getElementById("deck");
+        deck.addEventListener("touchstart", (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        deck.addEventListener("touchend", (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, { passive: true });
+
+        function handleSwipe() {
+            const threshold = 50; // minimum touch drag distance in pixels
+            if (touchStartX - touchEndX > threshold) {
+                nextSlide(); // Swiped Left -> Next Slide
+            } else if (touchEndX - touchStartX > threshold) {
+                prevSlide(); // Swiped Right -> Previous Slide
+            }
+        }
+
+        window.onload = function() {
+            initializeIndicators();
+            goToSlide(1);
+        };
+    </script>
+</body>
+</html>
